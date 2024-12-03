@@ -1,0 +1,4 @@
+.cache
+.venv
+winget_min_cli
+.env

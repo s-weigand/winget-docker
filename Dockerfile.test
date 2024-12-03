@@ -1,0 +1,8 @@
+# escape=`
+
+ARG WINGET_BASE_IMAGE
+FROM ${WINGET_BASE_IMAGE}
+
+RUN winget.exe install --id "Git.Git" --exact --source winget `
+    --accept-source-agreements  --disable-interactivity --silent `
+    --accept-package-agreements --force

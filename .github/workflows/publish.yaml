@@ -1,0 +1,67 @@
+name: 🐋🚀 Publish image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 🐋🚀 Publish ${{ matrix.base-tag }} image
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - base-tag: ltsc2022
+            runner: windows-2022
+
+    steps:
+      - name: ⏬ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: 📦⤴️ Download and extract minimal winget CLI
+        run: uv run --no-project get-min-winget-cli.py
+
+      - name: ⚙️ Set winget version
+        id: set-winget-version
+        shell: bash
+        run: echo "winget-version=$(cat .version)" >> "$GITHUB_OUTPUT"
+
+      - name: 👷🐋 Build image
+        id: test-base-image
+        uses: mr-smithers-excellent/docker-build-push@v6
+        with:
+          image: winget-windows
+          tags: ${{ steps.set-winget-version.outputs.winget-version }}-${{ matrix.base-tag }}
+          registry: ghcr.io
+          buildArgs: >
+            WINGET_VERSION=${{ steps.set-winget-version.outputs.winget-version }},
+            BASE_IMAGE_TAG=${{ matrix.base-tag }}
+          pushImage: false
+
+      - name: 🧪🐋 Run test
+        uses: mr-smithers-excellent/docker-build-push@v6
+        with:
+          image: test-runner-image
+          dockerfile: Dockerfile.test
+          registry: ghcr.io
+          buildArgs: |
+            WINGET_BASE_IMAGE=${{ steps.test-base-image.outputs.imageFullName }}:${{ steps.set-winget-version.outputs.winget-version }}-${{ matrix.base-tag }}
+          pushImage: false
+
+      - name: 🚀🐋 Push image
+        uses: mr-smithers-excellent/docker-build-push@v6
+        with:
+          image: winget-windows
+          tags: ${{ steps.set-winget-version.outputs.winget-version }}-${{ matrix.base-tag }},latest
+          registry: ghcr.io
+          buildArgs: >
+            WINGET_VERSION=${{ steps.set-winget-version.outputs.winget-version }},
+            BASE_IMAGE_TAG=${{ matrix.base-tag }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
